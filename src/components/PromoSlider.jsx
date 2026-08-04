@@ -24,7 +24,9 @@ export default function PromoSlider({ bannersProp = null, autoPlayTime = 5000 })
 
     const fetchBanners = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/promo-banners`);
+        const token = localStorage.getItem('adminToken');
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+        const response = await fetch(`${API_BASE_URL}/api/promo-banners`, { headers });
         const data = await response.json();
         if (data.success && data.banners) {
           setBanners(data.banners);

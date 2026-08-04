@@ -10,7 +10,8 @@ import {
   Home, 
   LogOut,
   Store,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Award
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
@@ -39,6 +40,11 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       name: 'Promo Banners',
       path: '/banners',
       icon: ImageIcon,
+    },
+    {
+      name: 'USP Sections',
+      path: '/usp',
+      icon: Award,
     },
     {
       name: 'Settings',

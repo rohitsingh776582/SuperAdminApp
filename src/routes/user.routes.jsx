@@ -10,6 +10,7 @@ import Login from '../pages/Login';
 import Register from '../pages/Register';
 import ForgotPassword from '../pages/ForgotPassword';
 import Banners from '../pages/Banners';
+import USPs from '../pages/USPs';
 
 function UserRoutes() {
   const token = localStorage.getItem('adminToken');
@@ -30,6 +31,7 @@ function UserRoutes() {
         <Route path="stores" element={<Stores />} />
         <Route path="settings" element={<Settings />} />
         <Route path="banners" element={<Banners />} />
+        <Route path="usp" element={<USPs />} />
         {/* Catch all redirect */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
