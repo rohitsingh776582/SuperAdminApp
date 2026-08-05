@@ -11,7 +11,10 @@ import {
   LogOut,
   Store,
   Image as ImageIcon,
-  Award
+  Award,
+  MessageSquare,
+  Ticket,
+  Truck
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
@@ -42,9 +45,24 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       icon: ImageIcon,
     },
     {
+      name: 'Offers & Coupons',
+      path: '/offers',
+      icon: Ticket,
+    },
+    {
       name: 'USP Sections',
       path: '/usp',
       icon: Award,
+    },
+    {
+      name: 'Product Reviews',
+      path: '/reviews',
+      icon: MessageSquare,
+    },
+    {
+      name: 'Delivery Settings',
+      path: '/delivery-settings',
+      icon: Truck,
     },
     {
       name: 'Settings',
