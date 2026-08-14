@@ -14,6 +14,7 @@ import USPs from '../pages/USPs';
 import ProductReviews from '../pages/ProductReviews';
 import Offers from '../pages/Offers';
 import DeliverySettings from '../pages/DeliverySettings';
+import Orders from '../pages/Orders';
 
 function UserRoutes() {
   const token = localStorage.getItem('adminToken');
@@ -29,6 +30,7 @@ function UserRoutes() {
       <Route path="/" element={token ? <AdminLayout /> : <Navigate to="/login" replace />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
+        <Route path="orders" element={<Orders />} />
         <Route path="approve" element={<Approve />} />
         <Route path="users" element={<Users />} />
         <Route path="stores" element={<Stores />} />

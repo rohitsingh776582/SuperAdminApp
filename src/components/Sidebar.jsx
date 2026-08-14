@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
+  ShoppingBag,
   CheckSquare, 
   Users, 
   Settings, 
@@ -23,6 +24,11 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       name: 'Dashboard',
       path: '/dashboard',
       icon: LayoutDashboard,
+    },
+    {
+      name: 'Orders Management',
+      path: '/orders',
+      icon: ShoppingBag,
     },
     {
       name: 'Approvals',
