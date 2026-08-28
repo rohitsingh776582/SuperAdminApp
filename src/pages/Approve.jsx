@@ -303,15 +303,19 @@ const Approve = () => {
 
   // --- Filtering ---
   const filteredSubAdmins = subAdmins.filter(sa => {
-    const matchesTab = sa.status === subAdminTab;
+    const isPending = sa.status === 'pending_approval' || sa.status === 'inactive';
+    const matchesTab = subAdminTab === 'inactive' ? isPending : sa.status === 'active';
     const matchesSearch = 
       sa.name.toLowerCase().includes(subSearch.toLowerCase()) ||
       sa.email.toLowerCase().includes(subSearch.toLowerCase()) ||
-      (sa.phone && sa.phone.includes(subSearch));
+      (sa.phone && sa.phone.includes(subSearch)) ||
+      (sa.assignedStore && sa.assignedStore.store_name && sa.assignedStore.store_name.toLowerCase().includes(subSearch.toLowerCase()));
     return matchesTab && matchesSearch;
   });
 
-  const getSubCount = (status) => subAdmins.filter(sa => sa.status === status).length;
+  const getSubCount = (tab) => subAdmins.filter(sa => 
+    tab === 'inactive' ? (sa.status === 'pending_approval' || sa.status === 'inactive') : sa.status === 'active'
+  ).length;
 
   return (
     <div className="space-y-6 animate-fade-in font-sans relative">
@@ -465,36 +469,55 @@ const Approve = () => {
                     <span>Registered: {new Date(admin.created_at).toLocaleDateString()}</span>
                   </div>
                   
-                  {/* Assigned Store */}
-                  <div className="flex items-center gap-2 pt-1 border-t border-dashed border-slate-100 mt-2">
-                    <Shield size={14} className="text-slate-400" />
-                    <span className="font-semibold">
-                      Store:{' '}
-                      {admin.assignedStore ? (
-                        <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md text-[10px] font-bold inline-block border border-indigo-100">
-                          {admin.assignedStore.store_name}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 italic">None Assigned</span>
-                      )}
+                  {/* Dark Store Details Card */}
+                  <div className="pt-2 border-t border-dashed border-slate-100 mt-2 bg-slate-50 p-3 rounded-xl space-y-1.5 text-left">
+                    <span className="text-[9px] font-black text-emerald-700 uppercase tracking-wider block">
+                      Registered Dark Store
                     </span>
+                    {admin.assignedStore ? (
+                      <>
+                        <p className="font-bold text-slate-800 text-xs">{admin.assignedStore.store_name}</p>
+                        <p className="text-[11px] text-slate-600 leading-snug">
+                          {admin.assignedStore.address}
+                          {admin.assignedStore.city ? `, ${admin.assignedStore.city}` : ''}
+                          {admin.assignedStore.state ? `, ${admin.assignedStore.state}` : ''}
+                          {admin.assignedStore.pin_code ? ` - ${admin.assignedStore.pin_code}` : ''}
+                        </p>
+                        {(admin.assignedStore.latitude || admin.assignedStore.longitude) && (
+                          <p className="text-[10px] text-slate-400 font-mono">
+                            Coords: {admin.assignedStore.latitude || 0}, {admin.assignedStore.longitude || 0}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-slate-400 italic text-[11px]">No Dark Store details attached.</p>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Approve / Suspend Action Buttons */}
-              <div className="mt-6 pt-4 border-t border-slate-100 flex items-center gap-3">
-                {admin.status === 'inactive' ? (
-                  <button
-                    onClick={() => handleUpdateSubAdminStatus(admin.id, 'active')}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 px-4 rounded-xl font-bold text-xs shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <Check size={14} />
-                    Approve & Activate Account
-                  </button>
+              {/* Approve / Reject Action Buttons */}
+              <div className="mt-5 pt-4 border-t border-slate-100 flex items-center gap-2">
+                {admin.status === 'pending_approval' || admin.status === 'inactive' ? (
+                  <>
+                    <button
+                      onClick={() => handleUpdateSubAdminStatus(admin.id, 'active')}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 px-3 rounded-xl font-bold text-xs shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <Check size={14} />
+                      Approve Account
+                    </button>
+                    <button
+                      onClick={() => handleUpdateSubAdminStatus(admin.id, 'rejected')}
+                      className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 py-2.5 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <X size={14} />
+                      Reject
+                    </button>
+                  </>
                 ) : (
                   <button
-                    onClick={() => handleUpdateSubAdminStatus(admin.id, 'inactive')}
+                    onClick={() => handleUpdateSubAdminStatus(admin.id, 'suspended')}
                     className="w-full bg-slate-50 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 hover:border-rose-100 py-2.5 px-4 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <X size={14} />
