@@ -302,9 +302,11 @@ const Approve = () => {
   };
 
   // --- Filtering ---
+  const isPendingStatus = (status) => 
+    ['pending_approval', 'inactive', 'pending_reapproval', 'suspended', 'pending', 'rejected'].includes(status);
+
   const filteredSubAdmins = subAdmins.filter(sa => {
-    const isPending = sa.status === 'pending_approval' || sa.status === 'inactive';
-    const matchesTab = subAdminTab === 'inactive' ? isPending : sa.status === 'active';
+    const matchesTab = subAdminTab === 'inactive' ? isPendingStatus(sa.status) : sa.status === 'active';
     const matchesSearch = 
       sa.name.toLowerCase().includes(subSearch.toLowerCase()) ||
       sa.email.toLowerCase().includes(subSearch.toLowerCase()) ||
@@ -314,8 +316,44 @@ const Approve = () => {
   });
 
   const getSubCount = (tab) => subAdmins.filter(sa => 
-    tab === 'inactive' ? (sa.status === 'pending_approval' || sa.status === 'inactive') : sa.status === 'active'
+    tab === 'inactive' ? isPendingStatus(sa.status) : sa.status === 'active'
   ).length;
+
+  const renderStatusBadge = (status) => {
+    if (status === 'pending_reapproval') {
+      return (
+        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+          Re-Approval Requested
+        </span>
+      );
+    }
+    if (status === 'suspended') {
+      return (
+        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200">
+          Suspended
+        </span>
+      );
+    }
+    if (status === 'rejected') {
+      return (
+        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+          Rejected
+        </span>
+      );
+    }
+    if (status === 'pending_approval' || status === 'inactive' || status === 'pending') {
+      return (
+        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+          Pending Approval
+        </span>
+      );
+    }
+    return (
+      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+        Active
+      </span>
+    );
+  };
 
   return (
     <div className="space-y-6 animate-fade-in font-sans relative">
@@ -428,10 +466,15 @@ const Approve = () => {
                       {admin.name.charAt(0)}
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-slate-800 truncate max-w-[150px]">{admin.name}</h3>
-                      <span className="text-[10px] text-slate-400 uppercase font-black tracking-wider leading-none block mt-0.5">
-                        {admin.role === 'sub_admin' ? 'Sub Admin / Vendor' : 'Super Admin'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-bold text-slate-800 truncate max-w-[150px]">{admin.name}</h3>
+                      </div>
+                      <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] text-slate-400 uppercase font-black tracking-wider leading-none block">
+                          {admin.role === 'sub_admin' ? 'Sub Admin / Vendor' : 'Super Admin'}
+                        </span>
+                        {renderStatusBadge(admin.status)}
+                      </div>
                     </div>
                   </div>
                   {isSuperAdmin && (
@@ -498,14 +541,14 @@ const Approve = () => {
 
               {/* Approve / Reject Action Buttons */}
               <div className="mt-5 pt-4 border-t border-slate-100 flex items-center gap-2">
-                {admin.status === 'pending_approval' || admin.status === 'inactive' ? (
+                {admin.status !== 'active' ? (
                   <>
                     <button
                       onClick={() => handleUpdateSubAdminStatus(admin.id, 'active')}
                       className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 px-3 rounded-xl font-bold text-xs shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer"
                     >
                       <Check size={14} />
-                      Approve Account
+                      {admin.status === 'pending_reapproval' || admin.status === 'suspended' ? 'Approve Re-Approval' : 'Approve Account'}
                     </button>
                     <button
                       onClick={() => handleUpdateSubAdminStatus(admin.id, 'rejected')}
