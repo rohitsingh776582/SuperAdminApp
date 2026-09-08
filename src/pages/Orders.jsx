@@ -33,6 +33,30 @@ const ORDER_STATUS_OPTIONS = [
   { value: 'returned', label: 'Returned' },
 ];
 
+const getGoogleMapsUrl = (addr) => {
+  if (!addr) return '';
+  const lat = addr.latitude || addr.lat;
+  const lng = addr.longitude || addr.lng || addr.long;
+
+  if (lat && lng && !isNaN(Number(lat)) && !isNaN(Number(lng))) {
+    return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  }
+
+  const parts = [];
+  if (addr.house_no && addr.house_no !== 'House / Flat') parts.push(addr.house_no);
+  const area = addr.address_line || addr.area;
+  if (area) parts.push(area);
+  if (addr.landmark) parts.push(`Near ${addr.landmark}`);
+  if (addr.city) parts.push(addr.city);
+  if (addr.state) parts.push(addr.state);
+  parts.push('India');
+  const pincode = addr.pin_code || addr.pincode || addr.postal_code;
+  if (pincode) parts.push(pincode);
+
+  const query = parts.filter(Boolean).join(', ');
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+};
+
 export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -491,7 +515,16 @@ export default function Orders() {
                   Email: {selectedOrder.customer?.email || 'N/A'}
                 </p>
 
-                <div className="pt-2 border-t border-slate-800/80 mt-2">
+                <div 
+                  onClick={() => {
+                    if (selectedOrder.address) {
+                      const url = getGoogleMapsUrl(selectedOrder.address);
+                      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+                    }
+                  }}
+                  className={`pt-2 border-t border-slate-800/80 mt-2 ${selectedOrder.address ? 'cursor-pointer hover:bg-slate-900/60 p-2 rounded-lg transition-all' : ''}`}
+                  title={selectedOrder.address ? 'Click to view delivery location on Google Maps' : ''}
+                >
                   <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 mb-1">
                     <MapPin className="w-4 h-4 text-emerald-400" />
                     Delivery Address
