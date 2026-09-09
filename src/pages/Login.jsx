@@ -35,7 +35,7 @@ export default function Login() {
         localStorage.setItem('adminUser', JSON.stringify(data.admin));
         
         // Refresh routing by reloading page or navigating
-        window.location.href = '/dashboard';
+        window.location.href = '/orders';
       } else {
         setError(data.message || 'Invalid email or password.');
       }

@@ -1,21 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import {
-  ShoppingBag,
-  Search,
-  Filter,
-  Eye,
-  RefreshCw,
   CheckCircle2,
-  Clock,
-  Truck,
-  XCircle,
+  Search,
+  RefreshCw,
+  Eye,
   CreditCard,
   MapPin,
   User,
   PackageCheck,
-  ChevronDown,
   DollarSign,
-  AlertCircle
+  AlertCircle,
+  Truck,
+  Store
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 
@@ -27,19 +23,6 @@ const getImageUrl = (url) => {
   const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
   return `${baseUrl.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
 };
-
-const ORDER_STATUS_OPTIONS = [
-  { value: 'all', label: 'All Statuses' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'placed', label: 'Placed' },
-  { value: 'confirmed', label: 'Confirmed' },
-  { value: 'packed', label: 'Packed' },
-  { value: 'shipped', label: 'Shipped' },
-  { value: 'out_for_delivery', label: 'Out for Delivery' },
-  { value: 'delivered', label: 'Delivered' },
-  { value: 'cancelled', label: 'Cancelled' },
-  { value: 'returned', label: 'Returned' },
-];
 
 const getGoogleMapsUrl = (addr) => {
   if (!addr) return '';
@@ -65,7 +48,7 @@ const getGoogleMapsUrl = (addr) => {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 };
 
-export default function Orders() {
+export default function DeliveredOrders() {
   const { selectedStoreId, selectedStore } = useStore();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -73,30 +56,27 @@ export default function Orders() {
 
   // Filters state
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('all');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
 
   // Selected Order Modal
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [updatingStatusId, setUpdatingStatusId] = useState(null);
 
-  const fetchOrders = async () => {
+  const fetchDeliveredOrders = async () => {
     setLoading(true);
     setError(null);
     try {
       const token = localStorage.getItem('adminToken');
       const params = new URLSearchParams();
 
-      if (statusFilter !== 'all') params.append('status', statusFilter);
       if (paymentMethodFilter !== 'all') params.append('payment_method', paymentMethodFilter);
       if (paymentStatusFilter !== 'all') params.append('payment_status', paymentStatusFilter);
       if (searchTerm.trim()) params.append('search', searchTerm.trim());
 
       const queryString = params.toString() ? `?${params.toString()}` : '';
       const url = selectedStoreId
-        ? `${API_URL}/api/super-admin/store/${selectedStoreId}/orders${queryString}`
-        : `${API_URL}/api/orders${queryString}`;
+        ? `${API_URL}/api/super-admin/store/${selectedStoreId}/orders/delivered${queryString}`
+        : `${API_URL}/api/orders?status=delivered${queryString ? '&' + queryString.slice(1) : ''}`;
 
       const response = await fetch(url, {
         headers: {
@@ -108,119 +88,34 @@ export default function Orders() {
       if (response.ok && data.success) {
         setOrders(data.orders || data.data || []);
       } else {
-        setError(data.message || 'Failed to fetch orders.');
+        setError(data.message || 'Failed to fetch delivered orders.');
       }
     } catch (err) {
-      console.error('Error fetching orders:', err);
-      setError('Network error loading orders list.');
+      console.error('Error fetching delivered orders:', err);
+      setError('Network error loading delivered orders list.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchOrders();
-  }, [selectedStoreId, statusFilter, paymentMethodFilter, paymentStatusFilter]);
+    fetchDeliveredOrders();
+  }, [selectedStoreId, paymentMethodFilter, paymentStatusFilter]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    fetchOrders();
+    fetchDeliveredOrders();
   };
 
-  const handleStatusChange = async (orderId, newStatus) => {
-    setUpdatingStatusId(orderId);
-    try {
-      const token = localStorage.getItem('adminToken');
-      const url = selectedStoreId
-        ? `${API_URL}/api/super-admin/store/${selectedStoreId}/orders/${orderId}/status`
-        : `${API_URL}/api/orders/${orderId}/status`;
-
-      const response = await fetch(url, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ status: newStatus })
-      });
-
-      const data = await response.json();
-      if (response.ok && data.success) {
-        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
-        if (selectedOrder && selectedOrder.id === orderId) {
-          setSelectedOrder(prev => ({ ...prev, status: newStatus }));
-        }
-      } else {
-        alert(data.message || 'Failed to update order status.');
-      }
-    } catch (err) {
-      console.error('Error updating order status:', err);
-      alert('Network error updating status.');
-    } finally {
-      setUpdatingStatusId(null);
-    }
-  };
-
-  const handlePaymentStatusChange = async (orderId, newPaymentStatus) => {
-    setUpdatingStatusId(orderId);
-    try {
-      const token = localStorage.getItem('adminToken');
-      const url = selectedStoreId
-        ? `${API_URL}/api/super-admin/store/${selectedStoreId}/orders/${orderId}/status`
-        : `${API_URL}/api/orders/${orderId}/status`;
-
-      const response = await fetch(url, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ payment_status: newPaymentStatus })
-      });
-
-      const data = await response.json();
-      if (response.ok && data.success) {
-        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_status: newPaymentStatus } : o));
-        if (selectedOrder && selectedOrder.id === orderId) {
-          setSelectedOrder(prev => ({ ...prev, payment_status: newPaymentStatus }));
-        }
-      } else {
-        alert(data.message || 'Failed to update payment status.');
-      }
-    } catch (err) {
-      console.error('Error updating payment status:', err);
-      alert('Network error updating payment status.');
-    } finally {
-      setUpdatingStatusId(null);
-    }
-  };
-
-  // Metrics calculation
-  const totalOrdersCount = orders.length;
-  const pendingCount = orders.filter(o => ['pending', 'placed', 'confirmed'].includes(o.status)).length;
-  const inTransitCount = orders.filter(o => ['packed', 'shipped', 'out_for_delivery'].includes(o.status)).length;
-  const deliveredCount = orders.filter(o => o.status === 'delivered').length;
-  const totalRevenue = orders.reduce((sum, o) => sum + (o.payment_status === 'paid' ? Number(o.final_amount || o.total_amount || 0) : 0), 0);
-
-  const getStatusBadge = (status) => {
-    const config = {
-      pending: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-      placed: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-      confirmed: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
-      packed: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
-      shipped: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-      out_for_delivery: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
-      delivered: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-      cancelled: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
-      returned: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
-    };
-    const styleClass = config[status] || 'bg-slate-800 text-slate-300 border-slate-700';
-    return (
-      <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${styleClass} uppercase tracking-wider`}>
-        {status?.replace(/_/g, ' ')}
-      </span>
-    );
-  };
+  // Metrics
+  const totalDelivered = orders.length;
+  const totalRevenue = orders.reduce((sum, o) => sum + Number(o.final_amount || o.total_amount || 0), 0);
+  const codRevenue = orders
+    .filter(o => (o.payment_method || '').toLowerCase().includes('cod'))
+    .reduce((sum, o) => sum + Number(o.final_amount || o.total_amount || 0), 0);
+  const onlineRevenue = orders
+    .filter(o => !(o.payment_method || '').toLowerCase().includes('cod'))
+    .reduce((sum, o) => sum + Number(o.final_amount || o.total_amount || 0), 0);
 
   return (
     <div className="p-6 space-y-6 bg-slate-50 dark:bg-slate-950 min-h-screen text-slate-800 dark:text-slate-100 transition-colors duration-200">
@@ -228,72 +123,67 @@ export default function Orders() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-            <ShoppingBag className="w-7 h-7 text-blue-500" />
-            Order Management System
+            <CheckCircle2 className="w-7 h-7 text-emerald-500" />
+            Delivered Orders
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Track, filter, update statuses, and view complete transaction details {selectedStore ? `for ${selectedStore.store_name}` : ''}.
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2">
+            <span>View successfully delivered orders and completed deliveries</span>
+            {selectedStore && (
+              <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full text-xs">
+                <Store className="w-3 h-3" /> {selectedStore.store_name}
+              </span>
+            )}
           </p>
         </div>
 
         <button
-          onClick={fetchOrders}
-          className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors"
+          onClick={fetchDeliveredOrders}
+          className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors cursor-pointer"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh Orders
+          Refresh List
         </button>
       </div>
 
       {/* Metrics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-sm">
-          <div className="p-3 bg-blue-500/10 rounded-xl text-blue-500 dark:text-blue-400">
-            <ShoppingBag className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Orders</p>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{totalOrdersCount}</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-sm">
-          <div className="p-3 bg-amber-500/10 rounded-xl text-amber-500 dark:text-amber-400">
-            <Clock className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pending Orders</p>
-            <p className="text-2xl font-bold text-amber-500 dark:text-amber-400 mt-1">{pendingCount}</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-sm">
-          <div className="p-3 bg-purple-500/10 rounded-xl text-purple-500 dark:text-purple-400">
-            <Truck className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">In Transit</p>
-            <p className="text-2xl font-bold text-purple-500 dark:text-purple-400 mt-1">{inTransitCount}</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-sm">
-          <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-500 dark:text-emerald-400">
+          <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-600 dark:text-emerald-400">
             <CheckCircle2 className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Delivered</p>
-            <p className="text-2xl font-bold text-emerald-500 dark:text-emerald-400 mt-1">{deliveredCount}</p>
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Delivered</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{totalDelivered}</p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex items-center gap-4 sm:col-span-2 lg:col-span-1 shadow-sm">
-          <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-500 dark:text-emerald-400">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+          <div className="p-3 bg-blue-500/10 rounded-xl text-blue-600 dark:text-blue-400">
             <DollarSign className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Paid Revenue</p>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">₹{totalRevenue.toFixed(2)}</p>
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Delivered Value</p>
+            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">₹{Math.round(totalRevenue)}</p>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+          <div className="p-3 bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400">
+            <CreditCard className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Online Payments</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">₹{Math.round(onlineRevenue)}</p>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+          <div className="p-3 bg-amber-500/10 rounded-xl text-amber-600 dark:text-amber-400">
+            <Truck className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">COD Collected</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">₹{Math.round(codRevenue)}</p>
           </div>
         </div>
       </div>
@@ -301,7 +191,6 @@ export default function Orders() {
       {/* Filter and Search Bar */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-4 shadow-sm">
         <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row items-center gap-4">
-          {/* Search Input */}
           <div className="relative flex-1 w-full">
             <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
             <input
@@ -309,50 +198,34 @@ export default function Orders() {
               placeholder="Search by Order ID (e.g. ORD-1234)..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
             />
           </div>
 
-          {/* Filter Dropdowns */}
           <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-            {/* Status Filter */}
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer"
-            >
-              {ORDER_STATUS_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-
-            {/* Payment Method Filter */}
             <select
               value={paymentMethodFilter}
               onChange={(e) => setPaymentMethodFilter(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+              className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:border-emerald-500 cursor-pointer"
             >
               <option value="all">All Payment Methods</option>
               <option value="COD">Cash on Delivery (COD)</option>
               <option value="online">Online Payment</option>
             </select>
 
-            {/* Payment Status Filter */}
             <select
               value={paymentStatusFilter}
               onChange={(e) => setPaymentStatusFilter(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+              className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:border-emerald-500 cursor-pointer"
             >
               <option value="all">All Payment Statuses</option>
-              <option value="pending">Pending</option>
               <option value="paid">Paid</option>
-              <option value="failed">Failed</option>
-              <option value="refunded">Refunded</option>
+              <option value="pending">Pending</option>
             </select>
 
             <button
               type="submit"
-              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-500/20 transition-colors"
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-500/20 transition-colors cursor-pointer"
             >
               Apply Filter
             </button>
@@ -360,12 +233,12 @@ export default function Orders() {
         </form>
       </div>
 
-      {/* Orders Table */}
+      {/* Delivered Orders Table */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
         {loading ? (
           <div className="p-12 text-center text-slate-400 space-y-3">
-            <RefreshCw className="w-8 h-8 animate-spin mx-auto text-blue-500" />
-            <p className="text-sm">Loading orders list...</p>
+            <RefreshCw className="w-8 h-8 animate-spin mx-auto text-emerald-500" />
+            <p className="text-sm">Loading delivered orders...</p>
           </div>
         ) : error ? (
           <div className="p-12 text-center text-rose-500 space-y-2">
@@ -374,9 +247,9 @@ export default function Orders() {
           </div>
         ) : orders.length === 0 ? (
           <div className="p-12 text-center text-slate-400 space-y-2">
-            <ShoppingBag className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600" />
-            <p className="text-base font-semibold text-slate-700 dark:text-slate-200">No Orders Found</p>
-            <p className="text-xs text-slate-400 dark:text-slate-500">Try adjusting your search terms or status filters.</p>
+            <CheckCircle2 className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600" />
+            <p className="text-base font-semibold text-slate-700 dark:text-slate-200">No Delivered Orders Found</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">No delivered orders found for this Dark Store matching your criteria.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -389,26 +262,24 @@ export default function Orders() {
                   <th className="px-6 py-4">Items</th>
                   <th className="px-6 py-4">Total</th>
                   <th className="px-6 py-4">Payment Method</th>
-                  <th className="px-6 py-4">Order Status</th>
-                  <th className="px-6 py-4 text-center">Actions</th>
+                  <th className="px-6 py-4">Delivery Status</th>
+                  <th className="px-6 py-4 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                 {orders.map((order) => {
-                  const isOnline = order.payment_method === 'online_razorpay' || order.payment_method === 'online';
+                  const isOnline = (order.payment_method || '').toLowerCase().includes('razorpay') || (order.payment_method || '').toLowerCase().includes('online');
                   const dateStr = new Date(order.created_at).toLocaleDateString('en-IN', {
                     day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
                   });
 
                   return (
                     <tr key={order.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                      {/* Order ID & Date */}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="font-bold text-slate-900 dark:text-white font-mono">{order.order_number}</div>
                         <div className="text-xs text-slate-400 mt-0.5">{dateStr}</div>
                       </td>
 
-                      {/* Customer Info */}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="font-semibold text-slate-800 dark:text-slate-200">
                           {order.customer?.full_name || order.address?.full_name || 'Customer'}
@@ -418,66 +289,43 @@ export default function Orders() {
                         </div>
                       </td>
 
-                      {/* Delivery Address Preview */}
                       <td className="px-6 py-4 max-w-xs truncate text-xs text-slate-500 dark:text-slate-400">
                         {order.address ? (
                           `${order.address.address_line}, ${order.address.city} - ${order.address.pin_code}`
                         ) : 'No address record'}
                       </td>
 
-                      {/* Line Items Count */}
                       <td className="px-6 py-4 whitespace-nowrap font-medium text-slate-700 dark:text-slate-300">
                         {order.order_items?.length || 0} Products
                       </td>
 
-                      {/* Total Amount */}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="font-bold text-emerald-600 dark:text-emerald-400">₹{order.final_amount || order.total_amount}</div>
                       </td>
 
-                      {/* Payment Method & Status */}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                          {isOnline ? '💳 Online Payment' : '💵 COD'}
+                          {isOnline ? '💳 Online' : '💵 COD'}
                         </div>
-                        <div className="mt-1">
-                          <select
-                            value={order.payment_status || 'pending'}
-                            onChange={(e) => handlePaymentStatusChange(order.id, e.target.value)}
-                            className={`text-[11px] font-bold px-2 py-0.5 rounded border focus:outline-none cursor-pointer ${order.payment_status === 'paid'
-                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-                              }`}
-                          >
-                            <option value="pending" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">PENDING</option>
-                            <option value="paid" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">PAID</option>
-                            <option value="failed" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">FAILED</option>
-                            <option value="refunded" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">REFUNDED</option>
-                          </select>
-                        </div>
+                        <span className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${
+                          order.payment_status === 'paid'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                            : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                        }`}>
+                          {order.payment_status || 'PENDING'}
+                        </span>
                       </td>
 
-                      {/* Order Status Selector */}
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <select
-                          value={order.status}
-                          disabled={updatingStatusId === order.id}
-                          onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                          className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer"
-                        >
-                          {ORDER_STATUS_OPTIONS.filter(o => o.value !== 'all').map(opt => (
-                            <option key={opt.value} value={opt.value} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
+                        <span className="px-2.5 py-1 text-xs font-semibold rounded-full border bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 uppercase tracking-wider inline-flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> DELIVERED
+                        </span>
                       </td>
 
-                      {/* View Action */}
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <button
                           onClick={() => setSelectedOrder(order)}
-                          className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 rounded-lg transition-colors cursor-pointer"
+                          className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-emerald-600 dark:text-emerald-400 rounded-lg transition-colors cursor-pointer"
                           title="View Order Details"
                         >
                           <Eye className="w-4 h-4" />
@@ -496,15 +344,14 @@ export default function Orders() {
       {selectedOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl space-y-6 p-6 my-8">
-            {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
               <div>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <PackageCheck className="w-6 h-6 text-blue-500" />
+                  <PackageCheck className="w-6 h-6 text-emerald-500" />
                   Order #{selectedOrder.order_number}
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Placed on {new Date(selectedOrder.created_at).toLocaleString('en-IN')}
+                  Delivered Order | Placed on {new Date(selectedOrder.created_at).toLocaleString('en-IN')}
                 </p>
               </div>
 
@@ -516,12 +363,11 @@ export default function Orders() {
               </button>
             </div>
 
-            {/* Quick Details grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Customer & Address */}
               <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-2">
                 <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <User className="w-4 h-4 text-blue-500" />
+                  <User className="w-4 h-4 text-emerald-500" />
                   Customer Details
                 </h3>
                 <p className="text-sm font-semibold text-slate-900 dark:text-white">
@@ -542,11 +388,11 @@ export default function Orders() {
                     }
                   }}
                   className={`pt-2 border-t border-slate-200 dark:border-slate-800/80 mt-2 ${selectedOrder.address ? 'cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-900/60 p-2 rounded-lg transition-all' : ''}`}
-                  title={selectedOrder.address ? 'Click to view delivery location on Google Maps' : ''}
+                  title="Click to view delivery location on Google Maps"
                 >
                   <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5 mb-1">
                     <MapPin className="w-4 h-4 text-emerald-500" />
-                    Delivery Address
+                    Delivery Location
                   </h4>
                   {selectedOrder.address ? (
                     <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
@@ -564,10 +410,10 @@ export default function Orders() {
                 </div>
               </div>
 
-              {/* Payment Details */}
+              {/* Payment Summary */}
               <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-2">
                 <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <CreditCard className="w-4 h-4 text-purple-500" />
+                  <CreditCard className="w-4 h-4 text-emerald-500" />
                   Payment Summary
                 </h3>
 
@@ -580,24 +426,10 @@ export default function Orders() {
 
                 <div className="flex justify-between text-xs py-1">
                   <span className="text-slate-500 dark:text-slate-400">Payment Status</span>
-                  <span className={`font-bold uppercase ${selectedOrder.payment_status === 'paid' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                    {selectedOrder.payment_status}
+                  <span className="font-bold uppercase text-emerald-600 dark:text-emerald-400">
+                    {selectedOrder.payment_status || 'PAID'}
                   </span>
                 </div>
-
-                {selectedOrder.razorpay_order_id && (
-                  <div className="flex justify-between text-xs py-1">
-                    <span className="text-slate-500 dark:text-slate-400">Razorpay Order ID</span>
-                    <span className="font-mono text-cyan-600 dark:text-cyan-400">{selectedOrder.razorpay_order_id}</span>
-                  </div>
-                )}
-
-                {selectedOrder.razorpay_payment_id && (
-                  <div className="flex justify-between text-xs py-1">
-                    <span className="text-slate-500 dark:text-slate-400">Razorpay Payment ID</span>
-                    <span className="font-mono text-cyan-600 dark:text-cyan-400">{selectedOrder.razorpay_payment_id}</span>
-                  </div>
-                )}
 
                 <div className="border-t border-slate-200 dark:border-slate-800 pt-2 space-y-1">
                   <div className="flex justify-between text-xs">
@@ -612,12 +444,6 @@ export default function Orders() {
                     <span className="text-slate-500 dark:text-slate-400">Handling Charge</span>
                     <span className="text-slate-900 dark:text-white">₹{selectedOrder.handling_charge || 0}</span>
                   </div>
-                  {Number(selectedOrder.discount_amount) > 0 && (
-                    <div className="flex justify-between text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
-                      <span>Discount Saved</span>
-                      <span>-₹{selectedOrder.discount_amount}</span>
-                    </div>
-                  )}
                   <div className="flex justify-between text-sm font-bold text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-800">
                     <span>Grand Total</span>
                     <span className="text-emerald-600 dark:text-emerald-400">₹{selectedOrder.final_amount || selectedOrder.total_amount}</span>
@@ -626,10 +452,10 @@ export default function Orders() {
               </div>
             </div>
 
-            {/* Line Items Table */}
+            {/* Line Items */}
             <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
               <div className="px-4 py-3 bg-slate-100 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 font-bold text-xs text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                Ordered Products ({selectedOrder.order_items?.length || 0})
+                Delivered Items ({selectedOrder.order_items?.length || 0})
               </div>
               <div className="divide-y divide-slate-200 dark:divide-slate-800">
                 {selectedOrder.order_items?.map((item) => {
