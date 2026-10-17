@@ -13,10 +13,12 @@ import {
   Check, 
   X, 
   Clock, 
-  ExternalLink 
+  ExternalLink,
+  Store
 } from 'lucide-react';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000') + '/api/promo-banners';
+const ADMIN_API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000') + '/api/admin';
 const SERVER_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
 const Banners = () => {
@@ -25,7 +27,9 @@ const Banners = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All'); // 'All' | 'active' | 'inactive'
-  
+  const [stores, setStores] = useState([]);
+  const [storeFilter, setStoreFilter] = useState('All'); // 'All' | store id
+
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBanner, setEditingBanner] = useState(null);
@@ -44,6 +48,7 @@ const Banners = () => {
   const [isActive, setIsActive] = useState(true);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [formStoreId, setFormStoreId] = useState('');
 
   // Toast notification
   const [notification, setNotification] = useState(null);
@@ -78,12 +83,34 @@ const Banners = () => {
     }
   };
 
+  // Dark stores for the store filter and the banner's store selector
+  const fetchStores = async () => {
+    const token = localStorage.getItem('adminToken');
+    if (!token) return;
+    try {
+      const response = await fetch(`${ADMIN_API_BASE_URL}/stores`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (response.status === 200 && data.success) {
+        setStores(data.stores || []);
+      }
+    } catch (err) {
+      console.error('Failed to load dark stores:', err);
+    }
+  };
+
   useEffect(() => {
     fetchBanners();
+    fetchStores();
   }, []);
+
+  const getStoreName = (banner) =>
+    banner.store?.store_name || stores.find(s => s.id === banner.store_id)?.store_name || 'Unknown Store';
 
   const handleOpenAddModal = () => {
     setEditingBanner(null);
+    setFormStoreId(storeFilter !== 'All' ? storeFilter : '');
     setTitle('');
     setDescription('');
     setRedirectType('home');
@@ -101,6 +128,7 @@ const Banners = () => {
 
   const handleOpenEditModal = (banner) => {
     setEditingBanner(banner);
+    setFormStoreId(banner.store_id || '');
     setTitle(banner.title);
     setDescription(banner.description || '');
     setRedirectType(banner.redirect_type);
@@ -134,6 +162,11 @@ const Banners = () => {
       return;
     }
 
+    if (!editingBanner && !formStoreId) {
+      setFormError('Please select the Dark Store this banner belongs to.');
+      return;
+    }
+
     if (!editingBanner && !imageFile) {
       setFormError('Banner image is required for new banners.');
       return;
@@ -143,6 +176,9 @@ const Banners = () => {
     setFormError(null);
 
     const formData = new FormData();
+    if (!editingBanner) {
+      formData.append('store_id', formStoreId);
+    }
     formData.append('title', title.trim());
     formData.append('description', description.trim());
     formData.append('redirect_type', redirectType);
@@ -258,7 +294,9 @@ const Banners = () => {
           ? b.is_active 
           : !b.is_active;
 
-    return matchesSearch && matchesStatus;
+    const matchesStore = storeFilter === 'All' || b.store_id === storeFilter;
+
+    return matchesSearch && matchesStatus && matchesStore;
   });
 
   return (
@@ -312,6 +350,18 @@ const Banners = () => {
 
         {/* Search Input */}
         <div className="flex items-center space-x-3 w-full md:w-auto">
+          {/* Dark store filter */}
+          <select
+            value={storeFilter}
+            onChange={(e) => setStoreFilter(e.target.value)}
+            className="py-2 px-3 text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all cursor-pointer"
+            title="Filter by Dark Store"
+          >
+            <option value="All">All Dark Stores</option>
+            {stores.map((s) => (
+              <option key={s.id} value={s.id}>{s.store_name}</option>
+            ))}
+          </select>
           <div className="relative flex-1 md:flex-initial">
             <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <Search className="w-4 h-4 text-slate-400" />
@@ -397,6 +447,10 @@ const Banners = () => {
                         {banner.redirect_type}
                       </span>
                     </div>
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 w-fit max-w-full">
+                      <Store size={11} className="flex-shrink-0" />
+                      <span className="truncate">{getStoreName(banner)}</span>
+                    </div>
                     <h3 className="text-sm font-bold text-slate-800 leading-snug">{banner.title}</h3>
                     {banner.description && (
                       <p className="text-xs text-slate-400 leading-normal line-clamp-2">{banner.description}</p>
@@ -472,6 +526,29 @@ const Banners = () => {
                   <span>{formError}</span>
                 </div>
               )}
+
+              {/* Dark Store (fixed after creation) */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Dark Store *</label>
+                {editingBanner ? (
+                  <div className="w-full rounded-xl border border-slate-250 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-700 font-semibold flex items-center gap-2">
+                    <Store size={14} className="text-slate-400" />
+                    {getStoreName(editingBanner)}
+                  </div>
+                ) : (
+                  <select
+                    className="w-full rounded-xl border border-slate-250 bg-white px-3.5 py-2.5 text-xs text-slate-900 focus:border-blue-500 focus:outline-none font-semibold"
+                    value={formStoreId}
+                    onChange={(e) => setFormStoreId(e.target.value)}
+                    required
+                  >
+                    <option value="">Select a Dark Store...</option>
+                    {stores.map((s) => (
+                      <option key={s.id} value={s.id}>{s.store_name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
 
               {/* Title */}
               <div>
