@@ -10,6 +10,7 @@ import {
   Award,
   MessageSquare,
   MapPin,
+  Truck,
   X, 
   Home, 
   LogOut
@@ -61,6 +62,11 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       name: 'Product Reviews',
       path: '/reviews',
       icon: MessageSquare,
+    },
+    {
+      name: 'Delivery Charge Management',
+      path: '/delivery-charges',
+      icon: Truck,
     },
   ];
 

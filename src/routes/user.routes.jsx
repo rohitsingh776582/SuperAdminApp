@@ -13,6 +13,7 @@ import Orders from '../pages/Orders';
 import DeliveredOrders from '../pages/DeliveredOrders';
 import CancelledOrders from '../pages/CancelledOrders';
 import AddressUsers from '../pages/AddressUsers';
+import DeliverySettings from '../pages/DeliverySettings';
 
 function UserRoutes() {
   const token = localStorage.getItem('adminToken');
@@ -33,6 +34,7 @@ function UserRoutes() {
         <Route path="address-users" element={<AddressUsers />} />
         <Route path="approve" element={<Approve />} />
         <Route path="stores" element={<Stores />} />
+        <Route path="delivery-charges" element={<DeliverySettings />} />
         <Route path="banners" element={<Banners />} />
         <Route path="usp" element={<USPs />} />
         <Route path="reviews" element={<ProductReviews />} />
