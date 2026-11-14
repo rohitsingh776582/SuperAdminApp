@@ -4,7 +4,6 @@ import AdminLayout from '../components/AdminLayout';
 import Approve from '../pages/Approve';
 import Stores from '../pages/Stores';
 import Login from '../pages/Login';
-import Register from '../pages/Register';
 import ForgotPassword from '../pages/ForgotPassword';
 import Banners from '../pages/Banners';
 import USPs from '../pages/USPs';
@@ -22,7 +21,6 @@ function UserRoutes() {
     <Routes>
       {/* Public Auth Routes */}
       <Route path="/login" element={token ? <Navigate to="/orders" replace /> : <Login />} />
-      <Route path="/register" element={token ? <Navigate to="/orders" replace /> : <Register />} />
       <Route path="/forgot-password" element={token ? <Navigate to="/orders" replace /> : <ForgotPassword />} />
 
       {/* Protected Layout & Pages */}

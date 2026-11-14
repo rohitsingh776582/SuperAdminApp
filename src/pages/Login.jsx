@@ -135,19 +135,6 @@ export default function Login() {
           </button>
         </form>
 
-        {/* Footer Links */}
-        <div className="mt-8 pt-6 border-t border-slate-100 text-center">
-          <p className="text-xs text-slate-500">
-            Need an admin account?{' '}
-            <Link 
-              to="/register" 
-              className="font-bold text-emerald-600 hover:text-emerald-700 transition-colors"
-            >
-              Create Account
-            </Link>
-          </p>
-        </div>
-
       </div>
     </div>
   );
