@@ -15,7 +15,9 @@ import {
   PackageCheck,
   ChevronDown,
   DollarSign,
-  AlertCircle
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 
@@ -81,6 +83,10 @@ export default function Orders() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
 
+  // Pagination
+  const PAGE_SIZE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+
   const fetchOrders = async () => {
     setLoading(true);
     setError(null);
@@ -107,6 +113,7 @@ export default function Orders() {
       const data = await response.json();
       if (response.ok && data.success) {
         setOrders(data.orders || data.data || []);
+        setCurrentPage(1);
       } else {
         setError(data.message || 'Failed to fetch orders.');
       }
@@ -201,6 +208,12 @@ export default function Orders() {
   const inTransitCount = orders.filter(o => ['packed', 'shipped', 'out_for_delivery'].includes(o.status)).length;
   const deliveredCount = orders.filter(o => o.status === 'delivered').length;
   const totalRevenue = orders.reduce((sum, o) => sum + (o.payment_status === 'paid' ? Number(o.final_amount || o.total_amount || 0) : 0), 0);
+
+  // Current page slice (clamped so the page stays valid if the list shrinks)
+  const totalPages = Math.max(1, Math.ceil(orders.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const paginatedOrders = orders.slice(pageStart, pageStart + PAGE_SIZE);
 
   const getStatusBadge = (status) => {
     const config = {
@@ -394,7 +407,7 @@ export default function Orders() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                {orders.map((order) => {
+                {paginatedOrders.map((order) => {
                   const isOnline = order.payment_method === 'online_razorpay' || order.payment_method === 'online';
                   const dateStr = new Date(order.created_at).toLocaleDateString('en-IN', {
                     day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
@@ -488,6 +501,52 @@ export default function Orders() {
                 })}
               </tbody>
             </table>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-6 py-4 border-t border-slate-200 dark:border-slate-800">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Showing <b className="text-slate-700 dark:text-slate-200">{pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, orders.length)}</b> of <b className="text-slate-700 dark:text-slate-200">{orders.length}</b> orders
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setCurrentPage(safePage - 1)}
+                    disabled={safePage === 1}
+                    className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="Previous Page"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(p => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+                    .map((p, idx, arr) => (
+                      <React.Fragment key={p}>
+                        {idx > 0 && p - arr[idx - 1] > 1 && (
+                          <span className="px-1 text-xs text-slate-400">…</span>
+                        )}
+                        <button
+                          onClick={() => setCurrentPage(p)}
+                          className={`min-w-8 h-8 px-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                            p === safePage
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      </React.Fragment>
+                    ))}
+                  <button
+                    onClick={() => setCurrentPage(safePage + 1)}
+                    disabled={safePage === totalPages}
+                    className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="Next Page"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

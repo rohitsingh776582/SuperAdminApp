@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   CheckCircle2,
   Search,
@@ -11,7 +11,10 @@ import {
   DollarSign,
   AlertCircle,
   Truck,
-  Store
+  Store,
+  Trash2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 
@@ -61,8 +64,26 @@ export default function DeliveredOrders() {
 
   // Selected Order Modal
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [deletingOrderId, setDeletingOrderId] = useState(null);
+
+  // Pagination
+  const PAGE_SIZE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Ignore responses from an earlier request (e.g. a previously selected store)
+  const latestRequestRef = useRef(0);
 
   const fetchDeliveredOrders = async () => {
+    const requestId = ++latestRequestRef.current;
+
+    // Only show delivered orders of the selected Dark Store
+    if (!selectedStoreId) {
+      setOrders([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -74,9 +95,7 @@ export default function DeliveredOrders() {
       if (searchTerm.trim()) params.append('search', searchTerm.trim());
 
       const queryString = params.toString() ? `?${params.toString()}` : '';
-      const url = selectedStoreId
-        ? `${API_URL}/api/super-admin/store/${selectedStoreId}/orders/delivered${queryString}`
-        : `${API_URL}/api/orders?status=delivered${queryString ? '&' + queryString.slice(1) : ''}`;
+      const url = `${API_URL}/api/super-admin/store/${selectedStoreId}/orders/delivered${queryString}`;
 
       const response = await fetch(url, {
         headers: {
@@ -85,16 +104,52 @@ export default function DeliveredOrders() {
       });
 
       const data = await response.json();
+      if (requestId !== latestRequestRef.current) return;
       if (response.ok && data.success) {
         setOrders(data.orders || data.data || []);
+        setCurrentPage(1);
       } else {
         setError(data.message || 'Failed to fetch delivered orders.');
       }
     } catch (err) {
+      if (requestId !== latestRequestRef.current) return;
       console.error('Error fetching delivered orders:', err);
       setError('Network error loading delivered orders list.');
     } finally {
-      setLoading(false);
+      if (requestId === latestRequestRef.current) setLoading(false);
+    }
+  };
+
+  // Permanently delete a delivered order (order items & payment logs cascade in DB)
+  const handleDeleteOrder = async (order) => {
+    const orderLabel = order.order_number ? `#${order.order_number}` : `#${String(order.id).slice(0, 8)}`;
+    const confirmed = window.confirm(
+      `Delete delivered order ${orderLabel}?\n\nThis will permanently remove the order from the database. This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeletingOrderId(order.id);
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`${API_URL}/api/orders/${order.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok && data.success) {
+        setOrders(prev => prev.filter(o => o.id !== order.id));
+        if (selectedOrder?.id === order.id) setSelectedOrder(null);
+      } else {
+        alert(data.message || 'Failed to delete order.');
+      }
+    } catch (err) {
+      console.error('Error deleting delivered order:', err);
+      alert('Network error while deleting the order.');
+    } finally {
+      setDeletingOrderId(null);
     }
   };
 
@@ -116,6 +171,12 @@ export default function DeliveredOrders() {
   const onlineRevenue = orders
     .filter(o => !(o.payment_method || '').toLowerCase().includes('cod'))
     .reduce((sum, o) => sum + Number(o.final_amount || o.total_amount || 0), 0);
+
+  // Current page slice (clamped so a delete on the last page never leaves it empty)
+  const totalPages = Math.max(1, Math.ceil(orders.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const paginatedOrders = orders.slice(pageStart, pageStart + PAGE_SIZE);
 
   return (
     <div className="p-6 space-y-6 bg-slate-50 dark:bg-slate-950 min-h-screen text-slate-800 dark:text-slate-100 transition-colors duration-200">
@@ -267,7 +328,7 @@ export default function DeliveredOrders() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                {orders.map((order) => {
+                {paginatedOrders.map((order) => {
                   const isOnline = (order.payment_method || '').toLowerCase().includes('razorpay') || (order.payment_method || '').toLowerCase().includes('online');
                   const dateStr = new Date(order.created_at).toLocaleDateString('en-IN', {
                     day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
@@ -330,12 +391,68 @@ export default function DeliveredOrders() {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
+                        <button
+                          onClick={() => handleDeleteOrder(order)}
+                          disabled={deletingOrderId === order.id}
+                          className="ml-2 p-2 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Delete Order"
+                        >
+                          {deletingOrderId === order.id
+                            ? <RefreshCw className="w-4 h-4 animate-spin" />
+                            : <Trash2 className="w-4 h-4" />}
+                        </button>
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-6 py-4 border-t border-slate-200 dark:border-slate-800">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Showing <b className="text-slate-700 dark:text-slate-200">{pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, orders.length)}</b> of <b className="text-slate-700 dark:text-slate-200">{orders.length}</b> delivered orders
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setCurrentPage(safePage - 1)}
+                    disabled={safePage === 1}
+                    className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="Previous Page"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(p => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+                    .map((p, idx, arr) => (
+                      <React.Fragment key={p}>
+                        {idx > 0 && p - arr[idx - 1] > 1 && (
+                          <span className="px-1 text-xs text-slate-400">…</span>
+                        )}
+                        <button
+                          onClick={() => setCurrentPage(p)}
+                          className={`min-w-8 h-8 px-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                            p === safePage
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      </React.Fragment>
+                    ))}
+                  <button
+                    onClick={() => setCurrentPage(safePage + 1)}
+                    disabled={safePage === totalPages}
+                    className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="Next Page"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

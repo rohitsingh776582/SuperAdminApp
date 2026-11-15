@@ -11,6 +11,7 @@ import {
   ShoppingBag,
   ExternalLink,
   ChevronRight,
+  ChevronLeft,
   Eye,
   CheckCircle2,
   XCircle,
@@ -23,6 +24,60 @@ import {
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
+const PAGE_SIZE = 10;
+
+// Shared pagination bar for the user lists (hidden when everything fits on one page)
+const PaginationBar = ({ page, total, onChange, label }) => {
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (totalPages <= 1) return null;
+  const start = (page - 1) * PAGE_SIZE;
+
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+      <p className="text-xs text-slate-500 dark:text-slate-400">
+        Showing <b className="text-slate-700 dark:text-slate-200">{start + 1}–{Math.min(start + PAGE_SIZE, total)}</b> of <b className="text-slate-700 dark:text-slate-200">{total}</b> {label}
+      </p>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => onChange(page - 1)}
+          disabled={page === 1}
+          className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Previous Page"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        {Array.from({ length: totalPages }, (_, i) => i + 1)
+          .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+          .map((p, idx, arr) => (
+            <React.Fragment key={p}>
+              {idx > 0 && p - arr[idx - 1] > 1 && (
+                <span className="px-1 text-xs text-slate-400">…</span>
+              )}
+              <button
+                onClick={() => onChange(p)}
+                className={`min-w-8 h-8 px-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                  p === page
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                {p}
+              </button>
+            </React.Fragment>
+          ))}
+        <button
+          onClick={() => onChange(page + 1)}
+          disabled={page === totalPages}
+          className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Next Page"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const getGoogleMapsUrl = (locOrUser) => {
   if (!locOrUser) return '';
@@ -79,6 +134,10 @@ export default function AddressUsers() {
   // User Detail Modal
   const [inspectUser, setInspectUser] = useState(null);
 
+  // Pagination (location users cards & all-users table)
+  const [locationUsersPage, setLocationUsersPage] = useState(1);
+  const [allUsersPage, setAllUsersPage] = useState(1);
+
   // 1. Fetch Stats & Locations
   const fetchData = async () => {
     setLoadingStats(true);
@@ -116,6 +175,7 @@ export default function AddressUsers() {
       const allData = await allRes.json();
       if (allRes.ok && allData.success) {
         setAllUsers(allData.users || []);
+        setAllUsersPage(1);
       }
     } catch (err) {
       console.error('Error fetching address user data:', err);
@@ -146,6 +206,7 @@ export default function AddressUsers() {
 
       if (res.ok && data.success) {
         setLocationUsers(data.users || []);
+        setLocationUsersPage(1);
       } else {
         setLocationUsers([]);
       }
@@ -183,6 +244,12 @@ export default function AddressUsers() {
     }
     return true;
   });
+
+  // Current page slices (clamped so the page stays valid if a list shrinks)
+  const safeLocationUsersPage = Math.min(locationUsersPage, Math.max(1, Math.ceil(locationUsers.length / PAGE_SIZE)));
+  const paginatedLocationUsers = locationUsers.slice((safeLocationUsersPage - 1) * PAGE_SIZE, safeLocationUsersPage * PAGE_SIZE);
+  const safeAllUsersPage = Math.min(allUsersPage, Math.max(1, Math.ceil(allUsers.length / PAGE_SIZE)));
+  const paginatedAllUsers = allUsers.slice((safeAllUsersPage - 1) * PAGE_SIZE, safeAllUsersPage * PAGE_SIZE);
 
   return (
     <div className="p-6 space-y-6 bg-slate-50 dark:bg-slate-950 min-h-screen text-slate-800 dark:text-slate-100 transition-colors duration-200 font-sans">
@@ -483,7 +550,7 @@ export default function AddressUsers() {
                       </p>
                     </div>
                   ) : (
-                    locationUsers.map((u, idx) => {
+                    paginatedLocationUsers.map((u, idx) => {
                       const initials = (u.full_name || 'U').charAt(0).toUpperCase();
                       const regDate = u.registered_at ? new Date(u.registered_at).toLocaleDateString('en-IN', {
                         day: 'numeric', month: 'short', year: 'numeric'
@@ -584,6 +651,15 @@ export default function AddressUsers() {
                       );
                     })
                   )}
+
+                  {!loadingUsers && (
+                    <PaginationBar
+                      page={safeLocationUsersPage}
+                      total={locationUsers.length}
+                      onChange={setLocationUsersPage}
+                      label="users"
+                    />
+                  )}
                 </div>
               </>
             ) : (
@@ -626,7 +702,7 @@ export default function AddressUsers() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                {allUsers.map((u) => {
+                {paginatedAllUsers.map((u) => {
                   const regDate = u.created_at ? new Date(u.created_at).toLocaleDateString('en-IN', {
                     day: 'numeric', month: 'short', year: 'numeric'
                   }) : '-';
@@ -684,6 +760,13 @@ export default function AddressUsers() {
               </tbody>
             </table>
           </div>
+
+          <PaginationBar
+            page={safeAllUsersPage}
+            total={allUsers.length}
+            onChange={setAllUsersPage}
+            label="registered users"
+          />
         </div>
       )}
 
